@@ -19,7 +19,6 @@ import { DGLabPulseService } from './services/DGLabPulse.js';
 import { LocalIPAddress, openBrowser } from './utils/utils.js';
 import { SiteNotificationService } from './services/SiteNotificationService.js';
 import { CustomSkinService } from './services/CustomSkinService.js';
-import { createDatabaseConnection } from './database.js';
 import { LoLGameManager } from './managers/LoLGameManager.js';
 import { ServerContext } from './types/server.js';
 import { WebWSManager } from './managers/WebWSManager.js';
@@ -38,9 +37,6 @@ async function main() {
 
     const app = new Koa();
     const httpServer = http.createServer(app.callback());
-    
-    const database = await createDatabaseConnection(MainConfig.value);
-    app.context.database = database; // 将数据库连接挂载到Koa上下文中
 
     // 在HTTP服务器上创建WebSocket服务器
     const wsServer = new WebSocketServer({
@@ -51,9 +47,7 @@ async function main() {
     await SiteNotificationService.instance.initialize();
     await CustomSkinService.instance.initialize();
 
-    const serverContext = {
-        database,
-    } as ServerContext;
+    const serverContext = {} as ServerContext;
 
     await LoLGameManager.instance.initialize(serverContext);
     await WebWSManager.instance.initialize(serverContext);

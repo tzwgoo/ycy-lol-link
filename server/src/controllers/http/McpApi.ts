@@ -92,18 +92,65 @@ export class MCPApiController {
                 deviceConnected: game.deviceConnected,
                 lolConnected: game.lolConnected,
                 inGame: game.inGame,
+                playerName: game.playerName,
             },
         });
 
         // 监听游戏事件
-        const eventHandler = (eventType: LoLGameEventType, commandId: number) => {
+        const eventTriggeredHandler = (eventType: LoLGameEventType, commandId: number) => {
             connection.sendEvent('eventTriggered', { eventType, commandId });
         };
-        game.on('eventTriggered', eventHandler);
+        game.on('eventTriggered', eventTriggeredHandler);
+
+        // 监听设备连接状态
+        const deviceConnectedHandler = () => {
+            connection.sendEvent('deviceConnected', {});
+        };
+        game.on('deviceConnected', deviceConnectedHandler);
+
+        const deviceDisconnectedHandler = () => {
+            connection.sendEvent('deviceDisconnected', {});
+        };
+        game.on('deviceDisconnected', deviceDisconnectedHandler);
+
+        // 监听 LoL 连接状态
+        const lolConnectedHandler = () => {
+            connection.sendEvent('lolConnected', {});
+        };
+        game.on('lolConnected', lolConnectedHandler);
+
+        const lolDisconnectedHandler = () => {
+            connection.sendEvent('lolDisconnected', {});
+        };
+        game.on('lolDisconnected', lolDisconnectedHandler);
+
+        // 监听游戏开始/结束
+        const gameStartedHandler = (playerName: string) => {
+            connection.sendEvent('gameStarted', { playerName });
+        };
+        game.on('gameStarted', gameStartedHandler);
+
+        const gameEndedHandler = () => {
+            connection.sendEvent('gameEnded', {});
+        };
+        game.on('gameEnded', gameEndedHandler);
+
+        // 监听游戏信息更新
+        const gameInfoUpdatedHandler = (info: any) => {
+            connection.sendEvent('gameInfoUpdated', info);
+        };
+        game.on('gameInfoUpdated', gameInfoUpdatedHandler);
 
         // 清理
         ctx.req.on('close', () => {
-            game.off('eventTriggered', eventHandler);
+            game.off('eventTriggered', eventTriggeredHandler);
+            game.off('deviceConnected', deviceConnectedHandler);
+            game.off('deviceDisconnected', deviceDisconnectedHandler);
+            game.off('lolConnected', lolConnectedHandler);
+            game.off('lolDisconnected', lolDisconnectedHandler);
+            game.off('gameStarted', gameStartedHandler);
+            game.off('gameEnded', gameEndedHandler);
+            game.off('gameInfoUpdated', gameInfoUpdatedHandler);
             MCPApiController.connections.delete(connectionId);
         });
     }
@@ -280,6 +327,117 @@ export class MCPApiController {
         ctx.body = {
             status: 1,
             code: 'OK',
+        };
+    }
+
+    /**
+     * 启动 LoL 联动
+     */
+    @routeConfig({
+        method: 'post',
+        path: '/api/mcp/:id/lol/start',
+        summary: 'MCP - 启动英雄联盟联动',
+        operationId: 'MCP Start LoL Integration',
+        tags: ['MCP'],
+    })
+    @responses(z.object({
+        status: z.number(),
+        code: z.string(),
+        message: z.string().optional(),
+    }))
+    public async startLoL(ctx: RouterContext): Promise<void> {
+        const clientId = ctx.params.id;
+
+        const game = LoLGameManager.instance.getGame(clientId);
+        if (!game) {
+            ctx.body = {
+                status: 0,
+                code: 'ERR::GAME_NOT_FOUND',
+                message: '游戏不存在',
+            };
+            return;
+        }
+
+        game.startLoLIntegration();
+
+        ctx.body = {
+            status: 1,
+            code: 'OK',
+        };
+    }
+
+    /**
+     * 停止 LoL 联动
+     */
+    @routeConfig({
+        method: 'post',
+        path: '/api/mcp/:id/lol/stop',
+        summary: 'MCP - 停止英雄联盟联动',
+        operationId: 'MCP Stop LoL Integration',
+        tags: ['MCP'],
+    })
+    @responses(z.object({
+        status: z.number(),
+        code: z.string(),
+        message: z.string().optional(),
+    }))
+    public async stopLoL(ctx: RouterContext): Promise<void> {
+        const clientId = ctx.params.id;
+
+        const game = LoLGameManager.instance.getGame(clientId);
+        if (!game) {
+            ctx.body = {
+                status: 0,
+                code: 'ERR::GAME_NOT_FOUND',
+                message: '游戏不存在',
+            };
+            return;
+        }
+
+        game.stopLoLIntegration();
+
+        ctx.body = {
+            status: 1,
+            code: 'OK',
+        };
+    }
+
+    /**
+     * 获取所有活跃的游戏会话
+     */
+    @routeConfig({
+        method: 'get',
+        path: '/api/mcp/sessions',
+        summary: 'MCP - 获取所有活跃的游戏会话',
+        operationId: 'MCP Get Sessions',
+        tags: ['MCP'],
+    })
+    @responses(z.object({
+        status: z.number(),
+        code: z.string(),
+        sessions: z.array(z.object({
+            gameId: z.string(),
+            deviceConnected: z.boolean(),
+            lolConnected: z.boolean(),
+            inGame: z.boolean(),
+            playerName: z.string().optional(),
+        })).optional(),
+    }))
+    public async getSessions(ctx: RouterContext): Promise<void> {
+        const games = Array.from(LoLGameManager.instance.getGameList());
+
+        const sessions = games.map(game => ({
+            gameId: game.clientId,
+            deviceConnected: game.deviceConnected,
+            lolConnected: game.lolConnected,
+            inGame: game.inGame,
+            playerName: game.playerName || undefined,
+        }));
+
+        ctx.body = {
+            status: 1,
+            code: 'OK',
+            sessions,
         };
     }
 }

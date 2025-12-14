@@ -150,43 +150,79 @@ enableAccessLogger: false      # 启用访问日志
 
 ## 🌐 API 文档
 
-### REST API
+YCY LoL Link 提供三套完整的 API：
 
-服务启动后访问 `/api/docs` 查看完整的 OpenAPI 文档。
+- **REST API** - 用于基本的游戏控制和配置
+- **WebSocket API** - 用于实时双向通信
+- **MCP API** - 用于 AI 客户端集成（支持 SSE）
 
-主要端点：
+### 📚 文档
 
-- `GET /api/server_info` - 获取服务器信息
-- `GET /api/client/connect` - 获取客户端连接信息
-- `POST /api/client/connect/ycyim` - 通过役次元 IM 连接设备
-- `GET /api/game/:id` - 获取游戏状态
-- `POST /api/game/:id/command` - 发送游戏指令
-- `GET /api/game/:id/triggers` - 获取事件触发配置
-- `POST /api/game/:id/triggers` - 更新事件触发配置
-- `POST /api/game/:id/lol/start` - 启动 LoL 联动
-- `POST /api/game/:id/lol/stop` - 停止 LoL 联动
+- **[完整 API 文档](docs/API.md)** - 详细的 API 参考文档
+- **[快速参考](docs/API-QUICK-REFERENCE.md)** - API 速查表
+- **[OpenAPI 文档](http://localhost:48091/api/docs)** - 交互式 API 文档（服务启动后访问）
 
-### WebSocket API
+### 主要端点
 
-连接到 `/ws` 进行实时通信。
+#### REST API
+
+```
+GET  /api/server_info              # 获取服务器信息
+GET  /api/client/connect           # 获取客户端ID
+POST /api/client/connect/ycyim     # 连接设备
+GET  /api/game/:id                 # 获取游戏状态
+POST /api/game/:id/command         # 发送指令
+GET  /api/game/:id/triggers        # 获取事件配置
+POST /api/game/:id/triggers        # 更新事件配置
+POST /api/game/:id/lol/start       # 启动LoL联动
+POST /api/game/:id/lol/stop        # 停止LoL联动
+```
+
+#### WebSocket API
+
+```
+ws://localhost:48091/ws/           # WebSocket连接
+```
 
 支持的消息类型：
-
 - `bindClient` - 绑定客户端
 - `startLoL` - 启动 LoL 联动
 - `stopLoL` - 停止 LoL 联动
 - `updateEventTriggers` - 更新事件配置
 - `sendCommand` - 发送指令
 
-### MCP API
+#### MCP API
 
-支持 Model Control Protocol，可与 AI 客户端集成：
+```
+GET  /api/mcp/:id/sse              # SSE连接（实时事件）
+POST /api/mcp/:id/command          # 发送指令
+GET  /api/mcp/:id/status           # 获取状态
+GET  /api/mcp/:id/triggers         # 获取事件配置
+POST /api/mcp/:id/triggers         # 更新事件配置
+POST /api/mcp/:id/lol/start        # 启动LoL联动
+POST /api/mcp/:id/lol/stop         # 停止LoL联动
+GET  /api/mcp/sessions             # 获取所有会话
+```
 
-- `GET /api/mcp/:id/sse` - SSE 连接
-- `POST /api/mcp/:id/command` - 发送指令
-- `GET /api/mcp/:id/status` - 获取状态
-- `GET /api/mcp/:id/triggers` - 获取事件配置
-- `POST /api/mcp/:id/triggers` - 更新事件配置
+### 快速示例
+
+```javascript
+// 1. 获取客户端ID
+const res = await fetch('http://localhost:48091/api/client/connect');
+const { clientId } = await res.json();
+
+// 2. 连接设备
+await fetch('http://localhost:48091/api/client/connect/ycyim', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ clientId, uid: 'xxx', token: 'xxx' })
+});
+
+// 3. 启动LoL联动
+await fetch(`http://localhost:48091/api/game/${clientId}/lol/start`, {
+  method: 'POST'
+});
+```
 
 ## 🛠️ 技术栈
 

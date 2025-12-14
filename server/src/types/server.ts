@@ -1,5 +1,4 @@
 import { z } from "koa-swagger-decorator";
-import { DataSource } from "typeorm";
 
 export const RemoteNotificationInfoSchema = z.object({
     /** 通知标题 */
@@ -24,5 +23,5 @@ export const RemoteNotificationInfoSchema = z.object({
 export type RemoteNotificationInfo = z.infer<typeof RemoteNotificationInfoSchema>;
 
 export type ServerContext = {
-    database: DataSource;
+    // 服务器上下文，目前为空，可以在未来添加需要的全局状态
 };
