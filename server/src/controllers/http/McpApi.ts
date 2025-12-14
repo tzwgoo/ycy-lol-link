@@ -175,7 +175,7 @@ export class MCPApiController {
     }))
     public async sendCommand(ctx: RouterContext): Promise<void> {
         const clientId = ctx.params.id;
-        const { commandId } = ctx.request.body as { commandId: number };
+        const { commandId } = ctx.request.res as { commandId: number };
 
         const game = LoLGameManager.instance.getGame(clientId);
         if (!game) {
@@ -310,7 +310,7 @@ export class MCPApiController {
     }))
     public async updateEventTriggers(ctx: RouterContext): Promise<void> {
         const clientId = ctx.params.id;
-        const { triggers } = ctx.request.body as { triggers: any[] };
+        const { triggers } = ctx.request.res as { triggers: any[] };
 
         const game = LoLGameManager.instance.getGame(clientId);
         if (!game) {
