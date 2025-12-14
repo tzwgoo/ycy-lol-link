@@ -1,0 +1,17 @@
+{
+  "name": "@ycy-lol-link/shared-types",
+  "version": "1.0.0",
+  "description": "Shared TypeScript type definitions for ycy-lol-link project",
+  "type": "module",
+  "main": "index.ts",
+  "types": "index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./dg": "./dg.ts",
+    "./lol": "./lol.ts",
+    "./websocket": "./websocket.ts"
+  },
+  "keywords": ["types", "typescript", "shared"],
+  "author": "",
+  "license": "MIT"
+}

@@ -1,0 +1,48 @@
+body {
+    background-color: #ffffff;
+    color: var(--p-text-color, #334155);
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    margin: 0;
+    --progress-font-size: 1.8rem;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.p-dark body,
+html.p-dark body {
+    background-color: #1e1e1e;
+    color: var(--p-text-color, #e4e4e4);
+}
+
+.pi > img,
+.pi > svg {
+    width: var(--p-icon-size);
+    height: auto;
+}
+
+a {
+    color: var(--link-color);
+    font-weight: 600;
+    text-decoration: underline;
+}
+
+.d-none {
+    display: none !important;
+}
+
+@keyframes pulse {
+    0% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
+
+    100% {
+        opacity: 1;
+    }
+}
+
+.animation-pulse {
+    animation: pulse 1.5s infinite;
+}

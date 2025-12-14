@@ -1,0 +1,20 @@
+{
+    "repo": "ycy-lol-link/ycy-lol-link",
+    "version": "2.0.0",
+    "description": "1. 将API重写为OpenAPI规范的MCP API\n2. 支持Model Control Protocol (MCP) API，现在可以使用支持MCP的AI客户端连接",
+    "releaseFile": {
+        "windows": "ycy-lol-link-windows-amd64-dist.zip",
+        "linux": "ycy-lol-link-nodejs-server.zip",
+        "mac": "ycy-lol-link-nodejs-server.zip"
+    },
+    "apiMirrors": [
+        {
+            "version": "https://raw.githubusercontent.com/{repo}/master/version.json",
+            "release": "https://github.com/{repo}/releases/download/v{version}/{file}"
+        },
+        {
+            "version": "https://mirror.ghproxy.com/https://raw.githubusercontent.com/{repo}/master/version.json",
+            "release": "https://mirror.ghproxy.com/https://github.com/{repo}/releases/download/v{version}/{file}"
+        }
+    ]
+}

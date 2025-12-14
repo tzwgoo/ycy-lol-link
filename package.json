@@ -1,0 +1,86 @@
+{
+  "name": "ycy-lol-link",
+  "version": "1.0.0",
+  "description": "战败惩罚",
+  "type": "commonjs",
+  "main": "electron/main.js",
+  "homepage": "./",
+  "scripts": {
+    "build:frontend": "cd frontend && npm run build && cd ..",
+    "build:server": "cd server && npm run build && cd ..",
+    "build:server:bundled": "cd server && npm run build:bundled && cd ..",
+    "build:migrate": "shx cp -r frontend/dist/* server/public",
+    "build": "npm run build:frontend && npm run build:server && npm run build:migrate",
+    "build:electron": "npm run build && electron-builder",
+    "start": "cd server && node dist/index.js",
+    "electron:dev": "node electron-start.js",
+    "electron:pack": "electron-builder --dir",
+    "electron:dist": "electron-builder"
+  },
+  "keywords": [],
+  "author": "Tank",
+  "license": "GPL-3.0",
+  "devDependencies": {
+    "@electron/rebuild": "^4.0.1",
+    "cross-env": "^10.1.0",
+    "electron": "^39.2.6",
+    "electron-builder": "^26.0.12",
+    "pkg": "^5.8.0",
+    "shx": "^0.3.4"
+  },
+  "build": {
+    "appId": "com.tanK.yct-lol-link",
+    "productName": "ycy-lol-link",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "asar": true,
+    "files": [
+      "electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "server/dist",
+        "to": "server/dist"
+      },
+      {
+        "from": "server/public",
+        "to": "server/public"
+      },
+      {
+        "from": "server/data",
+        "to": "server/data"
+      },
+      {
+        "from": "server/node_modules",
+        "to": "server/node_modules"
+      },
+      {
+        "from": "server/config.yaml",
+        "to": "server/config.yaml"
+      },
+      {
+        "from": "server/config.example.yaml",
+        "to": "server/config.example.yaml"
+      },
+      {
+        "from": "server/package.json",
+        "to": "server/package.json"
+      },
+      {
+        "from": "release-res/node",
+        "to": "node"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/public/vite.svg",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}

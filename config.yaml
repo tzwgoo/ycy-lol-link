@@ -1,0 +1,10 @@
+# 本机使用时的样例配置文件
+port: 3000                      # 服务器端口
+host: "127.0.0.1"               # 监听地址
+databaseType: "sqlite"          # 数据库类型
+databaseConfig:                 # 数据库配置
+  file: "data/database.sqlite"  # SQLite数据库文件路径
+pulseConfigPath: "pulse.json"   # 波形配置文件路径
+openBrowser: false              # 启动完成后自动打开浏览器（Electron环境下关闭）
+allowBroadcastToClients: true   # 允许向所有已连接的客户端广播消息
+enableAccessLogger: false       # 是否启用访问日志记录

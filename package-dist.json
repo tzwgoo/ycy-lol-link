@@ -1,0 +1,31 @@
+{
+  "name": "zhanbai-lol-link",
+  "version": "1.5.0",
+  "description": "英雄联盟-战败惩罚",
+  "main": "server/launcher.cjs",
+  "bin": "server/launcher.cjs",
+  "scripts": {
+    "start": "node server/index.js"
+  },
+  "pkg": {
+    "assets": [
+      "server/public/**/*",
+      "server/data/**/*",
+      "config.example.yaml",
+      "version.json"
+    ],
+    "scripts": [
+      "server/index.mjs",
+      "server/launcher.cjs"
+    ],
+    "targets": [
+      "node18-win-x64"
+    ]
+  },
+  "keywords": [
+    "DG-Lab",
+    "obs"
+  ],
+  "author": "tanK",
+  "license": "MIT"
+}
