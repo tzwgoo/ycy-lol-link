@@ -11,7 +11,7 @@ export interface YcyIMDeviceEvents {
 
 /**
  * 基于役次元IM的设备控制器
- * 通过IM向役次元APP发送 game_info 指令
+ * 通过IM向役次元APP发送 game_cmd 指令
  */
 export class YcyIMDeviceController {
     private ctx: ServerContext;
@@ -69,7 +69,7 @@ export class YcyIMDeviceController {
     }
 
     /**
-     * 发送 game_info 指令
+     * 发送 game_cmd 指令
      * @param commandId 指令ID (0-6: miss, hit, bomb等)
      */
     public async sendGameCommand(commandId: number): Promise<void> {
@@ -81,12 +81,12 @@ export class YcyIMDeviceController {
         try {
             // 记录 SDK 请求参数（实际发送的完整消息格式）
             const requestData = {
-                code: 'game_info',
-                data: commandId,
+                code: 'game_cmd',
+                id: commandId.toString(),
                 token: this.imClient.getToken(),
             };
             this.events.emit('sdkLog', 'request', requestData);
-            console.log(`[YcyIMDevice] 发送 game_info 指令:`, requestData);
+            console.log(`[YcyIMDevice] 发送 game_cmd 指令:`, requestData);
 
             // 发送指令并获取腾讯 IM SDK 的返回值
             const sdkResult = await this.imClient.sendGameInfo(commandId);

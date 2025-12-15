@@ -197,8 +197,8 @@ export class YcyIMClient {
     public async sendGameInfo(data: number): Promise<any> {
         // 不在这里添加 token，由 _doSend 统一处理
         return await this.send({
-            code: 'game_info',
-            data: data,
+            code: 'game_cmd',
+            id: data.toString(),
         });
     }
 
