@@ -1,7 +1,7 @@
 import { Context } from 'koa';
 import { LoLGameManager } from '#app/managers/LoLGameManager.js';
 import { body, responses, routeConfig, z } from 'koa-swagger-decorator';
-import { LoLGameEventType, DEFAULT_EVENT_TRIGGERS } from '#app/shared/types/index.js';
+import { LoLGameEventType, DEFAULT_EVENT_TRIGGERS, LOL_COMMAND_IDS, type LoLCommandId } from '#app/shared/types/index.js';
 
 /**
  * API响应类型
@@ -107,7 +107,7 @@ export class GameApiController {
         tags: ['Game'],
     })
     @body(z.object({
-        commandId: z.number().min(0).max(6).describe('指令ID (0-6)'),
+        commandId: z.enum(LOL_COMMAND_IDS).describe('英文指令ID'),
     }))
     @responses(z.object({
         status: z.number(),
@@ -116,7 +116,7 @@ export class GameApiController {
     }))
     public async sendCommand(ctx: Context): Promise<void> {
         const clientId = ctx.params.id;
-        const { commandId } = ctx.request.body as { commandId: number };
+        const { commandId } = ctx.request.body as { commandId: LoLCommandId };
 
         const game = LoLGameManager.instance.getGame(clientId);
         if (!game) {
@@ -161,7 +161,7 @@ export class GameApiController {
         triggers: z.array(z.object({
             eventType: z.string(),
             enabled: z.boolean(),
-            commandId: z.number(),
+            commandId: z.enum(LOL_COMMAND_IDS),
         })).optional(),
     }))
     public async getEventTriggers(ctx: Context): Promise<void> {
@@ -198,7 +198,7 @@ export class GameApiController {
         triggers: z.array(z.object({
             eventType: z.nativeEnum(LoLGameEventType),
             enabled: z.boolean(),
-            commandId: z.number().min(0).max(6),
+            commandId: z.enum(LOL_COMMAND_IDS),
         })),
     }))
     @responses(z.object({

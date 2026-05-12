@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { LoLGameEventType, LoLEventNames, LoLEventTriggerConfig } from '../../apis/socketApi';
+import { LOL_COMMAND_IDS, LoLCommandLabels, LoLGameEventType, LoLEventNames, LoLEventTriggerConfig, type LoLCommandId } from '../../apis/socketApi';
 
 defineOptions({
   name: 'LoLEventSettings',
@@ -14,22 +14,17 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'update:eventTriggers', triggers: LoLEventTriggerConfig[]): void;
-  (e: 'sendCommand', commandId: number): void;
+  (e: 'sendCommand', commandId: LoLCommandId): void;
 }>();
 
 // 指令选项
-const commandOptions = [
-  { label: '指令 0', value: 0 },
-  { label: '指令 1', value: 1 },
-  { label: '指令 2', value: 2 },
-  { label: '指令 3', value: 3 },
-  { label: '指令 4', value: 4 },
-  { label: '指令 5', value: 5 },
-  { label: '指令 6', value: 6 },
-];
+const commandOptions = LOL_COMMAND_IDS.map((value) => ({
+  label: LoLCommandLabels[value],
+  value,
+}));
 
 // 更新单个事件配置
-const updateTrigger = (eventType: LoLGameEventType, field: 'enabled' | 'commandId', value: boolean | number) => {
+const updateTrigger = (eventType: LoLGameEventType, field: 'enabled' | 'commandId', value: boolean | LoLCommandId) => {
   const newTriggers = props.eventTriggers.map(trigger => {
     if (trigger.eventType === eventType) {
       return { ...trigger, [field]: value };
@@ -40,7 +35,7 @@ const updateTrigger = (eventType: LoLGameEventType, field: 'enabled' | 'commandI
 };
 
 // 手动触发指令
-const manualSendCommand = (commandId: number) => {
+const manualSendCommand = (commandId: LoLCommandId) => {
   emit('sendCommand', commandId);
 };
 </script>
@@ -89,7 +84,7 @@ const manualSendCommand = (commandId: number) => {
           <template #body="{ data }">
             <Dropdown
               :modelValue="data.commandId"
-              @update:modelValue="(val: number) => updateTrigger(data.eventType, 'commandId', val)"
+              @update:modelValue="(val: LoLCommandId) => updateTrigger(data.eventType, 'commandId', val)"
               :options="commandOptions"
               optionLabel="label"
               optionValue="value"

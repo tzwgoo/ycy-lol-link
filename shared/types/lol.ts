@@ -63,6 +63,28 @@ export const LoLEventNames: Record<LoLGameEventType, string> = {
     [LoLGameEventType.Injured]: '受伤（掉血）',
 };
 
+export const LOL_COMMAND_IDS = [
+    'command_zero',
+    'command_one',
+    'command_two',
+    'command_three',
+    'command_four',
+    'command_five',
+    'command_six',
+] as const;
+
+export type LoLCommandId = typeof LOL_COMMAND_IDS[number];
+
+export const LoLCommandLabels: Record<LoLCommandId, string> = {
+    command_zero: '指令零',
+    command_one: '指令一',
+    command_two: '指令二',
+    command_three: '指令三',
+    command_four: '指令四',
+    command_five: '指令五',
+    command_six: '指令六',
+};
+
 /**
  * 事件触发配置
  */
@@ -71,8 +93,8 @@ export interface LoLEventTriggerConfig {
     eventType: LoLGameEventType;
     /** 是否启用 */
     enabled: boolean;
-    /** 触发的指令ID (0-6) */
-    commandId: number;
+    /** 触发的英文指令ID */
+    commandId: LoLCommandId;
 }
 
 /**
@@ -178,20 +200,20 @@ export interface GameStatus {
  * 默认事件触发配置
  */
 export const DEFAULT_EVENT_TRIGGERS: LoLEventTriggerConfig[] = [
-    { eventType: LoLGameEventType.ChampionKill, enabled: true, commandId: 1 },
-    { eventType: LoLGameEventType.Death, enabled: true, commandId: 2 },
-    { eventType: LoLGameEventType.Assist, enabled: true, commandId: 0 },
-    { eventType: LoLGameEventType.MultiKill, enabled: true, commandId: 3 },
-    { eventType: LoLGameEventType.FirstBlood, enabled: true, commandId: 3 },
-    { eventType: LoLGameEventType.MinionsSpawning, enabled: false, commandId: 0 },
-    { eventType: LoLGameEventType.FirstBrick, enabled: true, commandId: 1 },
-    { eventType: LoLGameEventType.DragonKill, enabled: true, commandId: 2 },
-    { eventType: LoLGameEventType.BaronKill, enabled: true, commandId: 3 },
-    { eventType: LoLGameEventType.HeraldKill, enabled: true, commandId: 1 },
-    { eventType: LoLGameEventType.TurretKilled, enabled: true, commandId: 1 },
-    { eventType: LoLGameEventType.InhibKilled, enabled: true, commandId: 2 },
-    { eventType: LoLGameEventType.Ace, enabled: true, commandId: 4 },
-    { eventType: LoLGameEventType.Injured, enabled: false, commandId: 0 },
+    { eventType: LoLGameEventType.ChampionKill, enabled: true, commandId: 'command_one' },
+    { eventType: LoLGameEventType.Death, enabled: true, commandId: 'command_two' },
+    { eventType: LoLGameEventType.Assist, enabled: true, commandId: 'command_zero' },
+    { eventType: LoLGameEventType.MultiKill, enabled: true, commandId: 'command_three' },
+    { eventType: LoLGameEventType.FirstBlood, enabled: true, commandId: 'command_three' },
+    { eventType: LoLGameEventType.MinionsSpawning, enabled: false, commandId: 'command_zero' },
+    { eventType: LoLGameEventType.FirstBrick, enabled: true, commandId: 'command_one' },
+    { eventType: LoLGameEventType.DragonKill, enabled: true, commandId: 'command_two' },
+    { eventType: LoLGameEventType.BaronKill, enabled: true, commandId: 'command_three' },
+    { eventType: LoLGameEventType.HeraldKill, enabled: true, commandId: 'command_one' },
+    { eventType: LoLGameEventType.TurretKilled, enabled: true, commandId: 'command_one' },
+    { eventType: LoLGameEventType.InhibKilled, enabled: true, commandId: 'command_two' },
+    { eventType: LoLGameEventType.Ace, enabled: true, commandId: 'command_four' },
+    { eventType: LoLGameEventType.Injured, enabled: false, commandId: 'command_zero' },
 ];
 
 /**

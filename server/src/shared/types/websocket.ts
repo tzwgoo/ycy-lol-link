@@ -3,7 +3,7 @@
  * 共享类型 - 前后端通用
  */
 
-import { LoLEventTriggerConfig, LoLGameEventType, LoLLiveGameInfo, GameStatus } from './lol.js';
+import { LoLEventTriggerConfig, LoLGameEventType, LoLLiveGameInfo, GameStatus, LoLCommandId } from './lol.js';
 
 /**
  * 客户端发送的 WebSocket 消息
@@ -54,7 +54,7 @@ export interface WebSocketEventListeners {
     gameStarted: [playerName: string];
     gameEnded: [];
     // 游戏事件触发
-    eventTriggered: [eventType: LoLGameEventType, commandId: number];
+    eventTriggered: [eventType: LoLGameEventType, commandId: LoLCommandId];
     // 事件配置更新
     eventTriggersUpdated: [config: LoLEventTriggerConfig[]];
     // 状态更新

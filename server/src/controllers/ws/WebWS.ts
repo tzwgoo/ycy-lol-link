@@ -6,7 +6,7 @@ import { LoLGameManager } from '#app/managers/LoLGameManager.js';
 import { LoLGameController } from '../game/LoLGameController.js';
 import { SiteNotificationService } from '#app/services/SiteNotificationService.js';
 import { ServerContext } from '#app/types/server.js';
-import type { LoLEventTriggerConfig, LoLGameEventType } from '#app/shared/types/index.js';
+import type { LoLCommandId, LoLEventTriggerConfig, LoLGameEventType } from '#app/shared/types/index.js';
 
 export type WebWSPostMessage = {
     event: string;
@@ -262,7 +262,7 @@ export class WebWSClient {
             return;
         }
 
-        if (typeof message.commandId !== 'number') {
+        if (typeof message.commandId !== 'string') {
             await this.sendResponse(message.requestId, {
                 status: 0,
                 message: '数据包错误：commandId 不存在或格式错误',
@@ -326,7 +326,7 @@ export class WebWSClient {
         });
 
         // 事件触发
-        gameEvents.on("eventTriggered", async (eventType: LoLGameEventType, commandId: number) => {
+        gameEvents.on("eventTriggered", async (eventType: LoLGameEventType, commandId: LoLCommandId) => {
             await this.send({
                 event: 'eventTriggered',
                 data: {
