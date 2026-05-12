@@ -1,9 +1,11 @@
 import { RouteLocationNormalizedLoaded } from "vue-router";
+import type { ChartParamDef } from "../charts/types/ChartParamDef";
 
 export function parseChartParams(route: RouteLocationNormalizedLoaded): Record<string, string> {
     const result: Record<string, any> = {};
+    const params = (route.meta?.params as ChartParamDef[] | undefined) ?? [];
 
-    for (let paramDef of route.meta?.params ?? []) {
+    for (const paramDef of params) {
         const value = route.query[paramDef.prop];
         if (value !== undefined && typeof value === 'string') {
             switch (paramDef.type) {
