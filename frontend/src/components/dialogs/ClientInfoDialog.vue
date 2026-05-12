@@ -22,6 +22,8 @@ const state = reactive({
   inputClientName: '',
 });
 
+const clientInfo = computed(() => clientsStore.getClientInfo(props.clientId));
+
 const setClientName = async (name: string) => {
   clientsStore.updateClientName(props.clientId, name);
 };
@@ -50,10 +52,9 @@ const copyInput = (inputId: string) => {
 
 watch(() => visible.value, (value) => {
   if (value) {
-    const clientInfo = clientsStore.getClientInfo(props.clientId);
-    console.log(clientInfo);
-    if (clientInfo) {
-      state.inputClientName = clientInfo.name;
+    console.log(clientInfo.value);
+    if (clientInfo.value) {
+      state.inputClientName = clientInfo.value.name;
     }
   }
 });
@@ -74,10 +75,14 @@ watch(() => state.inputClientName, (value) => {
     </div>
     <div class="flex flex-col gap-2 mb-4">
       <div class="flex items-center gap-2">
-        <label class="font-semibold w-30">客户端备注名</label>
+        <label class="font-semibold w-30">设备备注名</label>
         <InputText v-model="state.inputClientName" class="w-full" />
       </div>
-      <span class="text-gray-500 ml-28">客户端备注名会在每次打开页面的恢复连接窗口中显示</span>
+      <span class="text-gray-500 ml-28">设备备注名会在恢复连接窗口中显示</span>
+    </div>
+    <div class="flex items-center gap-2 mb-4" v-if="clientInfo?.uid">
+      <label class="font-semibold w-30">役次元 UID</label>
+      <InputText :value="clientInfo.uid" class="w-full" readonly />
     </div>
     <div class="flex items-center gap-2 mb-4">
       <label class="font-semibold w-30">客户端ID</label>

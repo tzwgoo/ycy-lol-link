@@ -26,7 +26,7 @@ const onConnectToClient = (clientId: string) => {
   <Dialog v-model:visible="visible" modal header="连接过的设备" class="connectedToSavedClients-dialog mx-4 w-full md:w-[40rem]">
     <div class="flex flex-col gap-4">
       <ConnectToSavedClientsList @connect-to-client="onConnectToClient" />
-      
+
       <div class="flex justify-end mt-4 gap-4">
         <Button label="连接新设备" @click="onCancel"></Button>
       </div>

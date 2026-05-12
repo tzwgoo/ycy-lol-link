@@ -3,7 +3,8 @@ import { useToast } from 'primevue/usetoast';
 import Toast from 'primevue/toast';
 import ConfirmDialog from 'primevue/confirmdialog';
 
-import { LoLEventTriggerConfig, LoLPlayerInfo } from '../apis/socketApi';
+import { LoLEventTriggerConfig, LoLPlayerInfo, type LoLCommandId } from '../apis/socketApi';
+import { webApi } from '../apis/webApi';
 import { useConfirm } from 'primevue/useconfirm';
 import ClientInfoDialog from '../components/dialogs/ClientInfoDialog.vue';
 import { useWebSocketStore } from '../stores/WebSocketStore';
@@ -11,6 +12,7 @@ import LoLEventSettings from './controller/LoLEventSettings.vue';
 
 export interface ControllerPageState {
   showConnectionDialog: boolean;
+  showSavedClientsDialog: boolean;
   showClientInfoDialog: boolean;
   showLiveCompDialog: boolean;
   showClientNameDialog: boolean;
@@ -19,6 +21,7 @@ export interface ControllerPageState {
 
 const state = reactive<ControllerPageState>({
   showConnectionDialog: false,
+  showSavedClientsDialog: false,
   showClientInfoDialog: false,
   showLiveCompDialog: false,
   showClientNameDialog: false,
@@ -103,18 +106,29 @@ const handleClientConnected = () => {
 };
 
 const handleSaveClientConnect = async (clientName: string) => {
-  wsStore.addClient(wsStore.clientId, clientName);
+  const clientInfo = wsStore.getClientInfo(wsStore.clientId);
+  wsStore.addClient(wsStore.clientId, clientName, {
+    uid: clientInfo?.uid,
+    token: clientInfo?.token,
+    userId: clientInfo?.userId,
+    connectionType: clientInfo?.connectionType ?? 'ycyim',
+  });
 };
 
 const showConnectionDialog = async () => {
-  if (!wsStore.clientId) {
-    try {
-      await wsStore.getClientConnectInfo();
-    } catch (error: any) {
-      toast.add({ severity: 'error', summary: '获取客户端ID失败', detail: error.message });
-      return;
-    }
+  const reconnectableClients = wsStore.getReconnectableClients();
+  if (reconnectableClients.length > 0) {
+    state.showSavedClientsDialog = true;
+    return;
   }
+
+  wsStore.useClientId('');
+  state.showConnectionDialog = true;
+};
+
+const openNewConnectionDialog = () => {
+  state.showSavedClientsDialog = false;
+  wsStore.useClientId('');
   state.showConnectionDialog = true;
 };
 
@@ -152,7 +166,7 @@ const handleUpdateEventTriggers = async (triggers: LoLEventTriggerConfig[]) => {
   }
 };
 
-const handleSendCommand = async (commandId: number) => {
+const handleSendCommand = async (commandId: LoLCommandId) => {
   if (!wsStore.deviceConnected) {
     toast.add({ severity: 'warn', summary: '未连接到设备', detail: '请先连接到设备', life: 5000 });
     return;
@@ -167,12 +181,60 @@ const handleSendCommand = async (commandId: number) => {
   }
 };
 
-const handleYcyIMConnected = () => {
+const handleYcyIMConnected = (payload: { clientId: string; uid: string; token: string }) => {
   state.showConnectionDialog = false;
+  state.showSavedClientsDialog = false;
+  wsStore.useClientId(payload.clientId);
+
+  const existingClient = wsStore.getClientInfo(payload.clientId) || wsStore.getClientInfoByUid(payload.uid);
+  const defaultClientName = existingClient?.name || `${new Date().toLocaleString()} 连接的设备`;
+
+  wsStore.addClient(payload.clientId, defaultClientName, {
+    uid: payload.uid,
+    token: payload.token,
+    userId: existingClient?.userId,
+    connectionType: 'ycyim',
+  });
+
+  if (!existingClient) {
+    state.newClientName = defaultClientName;
+    state.showClientNameDialog = true;
+  }
+
   toast.add({ severity: 'success', summary: '连接成功', detail: '已通过役次元IM连接到设备', life: 3000 });
 
   if (wsStore.clientId) {
     wsStore.bindClient();
+  }
+};
+
+const handleConnectToSavedClient = async (clientId: string) => {
+  const clientInfo = wsStore.getClientInfo(clientId);
+  if (!clientInfo?.uid || !clientInfo.token) {
+    toast.add({ severity: 'warn', summary: '连接信息不完整', detail: '该设备缺少可恢复的登录信息，请重新手动连接', life: 4000 });
+    openNewConnectionDialog();
+    return;
+  }
+
+  try {
+    const res = await webApi.connectViaYcyIM({
+      clientId: clientInfo.id,
+      uid: clientInfo.uid,
+      token: clientInfo.token,
+    });
+
+    if (!res || res.status !== 1) {
+      throw new Error(res?.message || '无法恢复到已保存设备');
+    }
+
+    handleYcyIMConnected({
+      clientId: clientInfo.id,
+      uid: clientInfo.uid,
+      token: clientInfo.token,
+    });
+  } catch (error: any) {
+    console.error('Cannot reconnect saved client:', error);
+    toast.add({ severity: 'error', summary: '恢复连接失败', detail: error.message || '无法恢复到已保存设备' });
   }
 };
 
@@ -293,6 +355,11 @@ onMounted(async () => {
     <ConnectToClientDialog v-model:visible="state.showConnectionDialog"
       :client-id="wsStore.clientId"
       @ycyim-connected="handleYcyIMConnected" />
+    <ConnectToSavedClientsDialog
+      v-model:visible="state.showSavedClientsDialog"
+      @cancel="openNewConnectionDialog"
+      @confirm="handleConnectToSavedClient"
+    />
     <ClientInfoDialog v-model:visible="state.showClientInfoDialog" :client-id="wsStore.clientId"
       :controller-url="wsStore.apiBaseHttpUrl" />
     <GetLiveCompDialog v-model:visible="state.showLiveCompDialog" :client-id="wsStore.clientId" />
