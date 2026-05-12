@@ -26,8 +26,8 @@ export interface YcyIMAuthResponse {
  */
 export interface YcyIMMessage {
     code: string;
-    id?: string;
-    data?: number;
+    id?: string | number;
+    data?: string | number;
     token?: string;
     payload?: Record<string, any>;
 }

@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events';
 import { YcyIMDeviceController } from '#app/controllers/ws/YcyIMDevice.js';
 import { LoLClientService } from '#app/services/LoLClientService.js';
-import type { LoLGameEventType, LoLEventTriggerConfig, LoLLiveGameInfo } from '#app/shared/types/index.js';
+import type { LoLCommandId, LoLGameEventType, LoLEventTriggerConfig, LoLLiveGameInfo } from '#app/shared/types/index.js';
 import { DEFAULT_EVENT_TRIGGERS } from '#app/shared/types/index.js';
 import { ServerContext } from '#app/types/server.js';
 import { EventStore } from '#app/utils/EventStore.js';
@@ -23,7 +23,7 @@ export interface LoLGameControllerEvents {
     /** 游戏结束 */
     gameEnded: [];
     /** 游戏事件触发 */
-    eventTriggered: [eventType: LoLGameEventType, commandId: number];
+    eventTriggered: [eventType: LoLGameEventType, commandId: LoLCommandId];
     /** 配置更新 */
     configUpdated: [config: LoLEventTriggerConfig[]];
     /** 对局信息更新 */
@@ -168,7 +168,7 @@ export class LoLGameController {
     /**
      * 发送指令到设备
      */
-    public async sendCommand(commandId: number): Promise<void> {
+    public async sendCommand(commandId: LoLCommandId): Promise<void> {
         if (!this.device?.active) {
             console.warn('[LoLGameController] 设备未连接，无法发送指令');
             return;

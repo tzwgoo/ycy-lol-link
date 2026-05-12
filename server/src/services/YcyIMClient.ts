@@ -1,12 +1,18 @@
 import { EventEmitter } from 'events';
-import { createRequire } from 'module';
-import { YcyIMConfig, YcyIMMessage, YcyIMAuthResponse } from '#app/types/ycyim.js';
+import WebSocket from 'ws';
+import { YcyIMConfig, YcyIMMessage } from '#app/types/ycyim.js';
+import {
+    buildLoginMessage,
+    buildLogoutMessage,
+    buildSendCommandMessage,
+    isSuccessResponse,
+    normalizeUserId,
+    type ImWsClientMessage,
+    type ImWsCommandId,
+    type ImWsServerMessage,
+} from './imWsProtocol.js';
 
-// TencentCloudChat 是 CJS 模块，需要使用 require 导入
-const require = createRequire(import.meta.url);
-const TencentCloudChat = require('@tencentcloud/chat');
-
-const YCY_API_BASE = 'https://suo.jiushu1234.com/api.php';
+const YCY_IM_WS_URL = 'ws://103.236.55.92:43001/';
 
 export interface YcyIMClientEvents {
     ready: [];
@@ -18,21 +24,26 @@ export interface YcyIMClientEvents {
 export interface YcyIMClientState {
     uid: string;
     token: string;
-    signature: string | null;
+    userId: string | null;
     appId: string | null;
 }
 
 /**
  * 役次元IM客户端
- * 用于通过腾讯云IM向役次元APP发送控制指令
+ * 用于通过役次元提供的 WebSocket API 登录并发送控制指令
  */
 export class YcyIMClient {
-    private chat: any = null;
+    private socket: WebSocket | null = null;
     private state: YcyIMClientState;
     private initialized = false;
     private isReady = false;
     private destroyed = false;
     private sendQueue: Promise<void> = Promise.resolve();
+    private waiters = new Map<string, Array<{
+        resolve: (message: ImWsServerMessage) => void;
+        reject: (error: Error) => void;
+        timer: NodeJS.Timeout;
+    }>>();
 
     private events = new EventEmitter<YcyIMClientEvents>();
 
@@ -40,7 +51,7 @@ export class YcyIMClient {
         this.state = {
             uid: config.uid,
             token: config.token,
-            signature: null,
+            userId: null,
             appId: null,
         };
     }
@@ -54,119 +65,92 @@ export class YcyIMClient {
         }
 
         console.log('[YcyIMClient] 正在初始化IM连接...');
+        this.destroyed = false;
+        await this.connectWebSocket();
 
-        // 获取签名
-        const { appId, userSig } = await this.requestGameSign(
-            `game_${this.state.uid}`,
-            this.state.token
-        );
-        this.state.signature = userSig;
-        this.state.appId = appId;
-
-        // 创建IM实例
-        this.chat = TencentCloudChat.create({ SDKAppID: parseInt(appId) });
-
-        // 设置日志级别
-        // @ts-ignore
-        // this.chat.setLogLevel(TencentCloudChat.LOG_LEVEL?.NONE ?? 4);
-
-        // 监听SDK就绪事件
-        this.chat.on(TencentCloudChat.EVENT.SDK_READY, () => {
-            this.isReady = true;
-            this.initialized = true;
-            console.log('[YcyIMClient] IM SDK 就绪');
-            this.events.emit('ready');
-        });
-
-        // 监听被踢下线事件
-        this.chat.on(TencentCloudChat.EVENT.KICKED_OUT, async () => {
-            console.warn('[YcyIMClient] IM 被踢下线');
-            await this.destroy();
-            this.events.emit('close');
-        });
-
-        // 监听错误事件
-        this.chat.on(TencentCloudChat.EVENT.ERROR, (e: any) => {
-            console.warn('[YcyIMClient] IM SDK 错误:', e?.message || e);
-            this.events.emit('error', new Error(e?.message || 'IM SDK Error'));
-        });
-
-        // 监听消息接收事件
-        this.chat.on(TencentCloudChat.EVENT.MESSAGE_RECEIVED, (event: any) => {
-            for (const msg of event.data) {
-                try {
-                    const content = JSON.parse(msg.payload.text);
-                    console.log('[YcyIMClient] 收到消息:', content);
-                    this.events.emit('message', content);
-                } catch {
-                    console.log('[YcyIMClient] 收到原始消息:', msg.payload.text);
-                }
-            }
-        });
-
-        // 登录
         console.log('[YcyIMClient] 正在登录...');
-        const res = await this.chat.login({
-            userID: `game_${this.state.uid}`,
-            userSig: this.state.signature,
-        });
+        const loginResult = await this.sendAndWait(
+            buildLoginMessage(this.state.uid, this.state.token),
+            'loginResult'
+        );
 
-        if (res?.data?.repeatLogin) {
-            console.warn('[YcyIMClient] 重复登录:', res.data.errorInfo);
+        if (!isSuccessResponse(loginResult)) {
+            throw new Error(loginResult.message || 'IM 登录失败');
         }
 
-        // 等待就绪
-        await this.waitReady();
+        this.state.userId = String(loginResult.data?.userId || normalizeUserId(this.state.uid));
+        this.state.appId = loginResult.data?.appId ? String(loginResult.data.appId) : null;
+        this.initialized = true;
+
+        if (loginResult.data?.isReady !== false) {
+            this.markReady();
+        } else {
+            await this.waitReady();
+        }
+
         console.log('[YcyIMClient] IM 初始化完成');
     }
 
     /**
-     * 等待SDK就绪
+     * 等待 IM 会话就绪
      */
     private async waitReady(timeout = 15000): Promise<void> {
         if (this.isReady) return;
 
         await new Promise<void>((resolve, reject) => {
             const onReady = () => {
-                this.isReady = true;
                 cleanup();
                 resolve();
             };
 
             const timer = setTimeout(() => {
                 cleanup();
-                reject(new Error('等待 SDK_READY 超时'));
+                reject(new Error('等待 IM_READY 超时'));
             }, timeout);
 
             const cleanup = () => {
                 clearTimeout(timer);
-                this.chat?.off(TencentCloudChat.EVENT.SDK_READY, onReady);
+                this.events.off('ready', onReady);
             };
 
-            this.chat?.on(TencentCloudChat.EVENT.SDK_READY, onReady);
+            this.events.on('ready', onReady);
         });
     }
 
-    /**
-     * 请求游戏签名
-     */
-    private async requestGameSign(uid: string, token: string): Promise<{ appId: string; userSig: string }> {
-        const resp = await fetch(`${YCY_API_BASE}/user/game_sign`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ uid, token }),
+    private async connectWebSocket(): Promise<void> {
+        if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+            return;
+        }
+
+        await new Promise<void>((resolve, reject) => {
+            const socket = new WebSocket(YCY_IM_WS_URL);
+            let settled = false;
+
+            const cleanup = () => {
+                socket.off('open', handleOpen);
+                socket.off('error', handleError);
+            };
+
+            const handleOpen = () => {
+                cleanup();
+                settled = true;
+                this.socket = socket;
+                this.bindSocketEvents(socket);
+                resolve();
+            };
+
+            const handleError = (error: Error) => {
+                cleanup();
+                if (!settled) {
+                    reject(error);
+                } else {
+                    this.events.emit('error', error);
+                }
+            };
+
+            socket.once('open', handleOpen);
+            socket.once('error', handleError);
         });
-
-        if (!resp.ok) {
-            throw new Error(`game_sign HTTP 错误: ${resp.status}`);
-        }
-
-        const payload: YcyIMAuthResponse = await resp.json();
-        if (payload.code !== 1 || !payload.data) {
-            throw new Error(`game_sign 返回异常: ${JSON.stringify(payload)}`);
-        }
-
-        return { appId: payload.data.appid, userSig: payload.data.sign };
     }
 
     /**
@@ -192,48 +176,43 @@ export class YcyIMClient {
     /**
      * 发送游戏指令
      * @param data 指令数据
-     * @returns SDK 返回的发送结果
+     * @returns WebSocket API 返回的发送结果
      */
-    public async sendGameInfo(data: number): Promise<any> {
-        // 不在这里添加 token，由 _doSend 统一处理
+    public async sendGameInfo(data: ImWsCommandId): Promise<any> {
         return await this.send({
             code: 'game_cmd',
-            id: data.toString(),
+            id: data,
         });
     }
 
     /**
      * 内部发送实现
-     * @returns 腾讯 IM SDK 的 sendMessage 返回值
+     * @returns WebSocket API 的 commandResult 返回值
      */
     private async _doSend(message: YcyIMMessage): Promise<any> {
-        if (!this.chat || !this.isReady) {
+        if (!this.socket || !this.isReady || !this.state.userId) {
             console.warn('[YcyIMClient] IM 未就绪，丢弃消息');
             return null;
         }
 
-        const msg = this.chat.createTextMessage({
-            to: this.state.uid,
-            conversationType: TencentCloudChat.TYPES.CONV_C2C,
-            payload: {
-                text: JSON.stringify({
-                    ...message,
-                    token: this.state.token,
-                }),
-            },
-        });
-
-        try {
-            // 返回腾讯 IM SDK 的实际响应
-            const sendResult = await this.chat.sendMessage(msg);
-            console.log('[YcyIMClient] 消息发送成功');
-            console.log('[YcyIMClient] to_uid: ' + this.state.uid + ', message: ', message);
-            console.log('[YcyIMClient] SDK 返回值: ', sendResult);
-            return sendResult;
-        } catch (e: any) {
-            console.error('[YcyIMClient] 发送失败:', e?.message || e);
-            throw e;
+        const commandId = message.id ?? message.data;
+        if (commandId === undefined || commandId === null) {
+            throw new Error('缺少 commandId');
         }
+
+        const sendResult = await this.sendAndWait(
+            buildSendCommandMessage(this.state.userId, commandId),
+            'commandResult'
+        );
+
+        if (!isSuccessResponse(sendResult)) {
+            throw new Error(sendResult.message || '指令发送失败');
+        }
+
+        console.log('[YcyIMClient] 指令发送成功');
+        console.log('[YcyIMClient] to_userId: ' + this.state.userId + ', commandId: ', commandId);
+        console.log('[YcyIMClient] WS 返回值: ', sendResult);
+        return sendResult;
     }
 
     /**
@@ -244,33 +223,200 @@ export class YcyIMClient {
     }
 
     /**
-     * 获取 token（用于日志记录）
+     * 获取 token（用于请求日志记录）
      */
     public getToken(): string {
         return this.state.token;
+    }
+
+    public getUserId(): string | null {
+        return this.state.userId;
     }
 
     /**
      * 销毁客户端
      */
     public async destroy(): Promise<void> {
-        if (this.chat) {
+        this.destroyed = true;
+
+        const socket = this.socket;
+        if (socket && socket.readyState === WebSocket.OPEN && this.state.userId) {
             try {
-                console.log('[YcyIMClient] 销毁 Chat 实例...');
-                await this.chat.logout();
-                await this.chat.destroy();
+                await this.sendAndWait(buildLogoutMessage(this.state.userId), 'logoutResult', 5000);
             } catch (e: any) {
-                console.warn('[YcyIMClient] 销毁 Chat 实例出错:', e.message);
-            } finally {
-                this.chat = null;
-                this.initialized = false;
-                this.isReady = false;
-                this.destroyed = true;
+                console.warn('[YcyIMClient] 登出会话失败:', e.message);
             }
         }
 
+        if (socket) {
+            try {
+                socket.removeAllListeners();
+                socket.close();
+            } catch (e: any) {
+                console.warn('[YcyIMClient] 关闭 WebSocket 出错:', e.message);
+            }
+        }
+
+        for (const entries of this.waiters.values()) {
+            for (const waiter of entries) {
+                clearTimeout(waiter.timer);
+                waiter.reject(new Error('连接已关闭'));
+            }
+        }
+        this.waiters.clear();
+
+        this.socket = null;
+        this.initialized = false;
+        this.isReady = false;
+        this.state.userId = null;
+
         this.events.emit('close');
         this.events.removeAllListeners();
+    }
+
+    private bindSocketEvents(socket: WebSocket): void {
+        socket.on('message', (data) => {
+            try {
+                const message = JSON.parse(data.toString()) as ImWsServerMessage;
+                this.handleServerMessage(message);
+            } catch (error: any) {
+                this.events.emit('error', error);
+            }
+        });
+
+        socket.on('close', () => {
+            this.socket = null;
+            if (!this.destroyed) {
+                this.initialized = false;
+                this.isReady = false;
+                this.events.emit('close');
+            }
+        });
+
+        socket.on('error', (error) => {
+            this.events.emit('error', error as Error);
+        });
+    }
+
+    private handleServerMessage(message: ImWsServerMessage): void {
+        if (message.type === 'loginResult' && message.data?.userId) {
+            this.state.userId = String(message.data.userId);
+            this.state.appId = message.data.appId ? String(message.data.appId) : this.state.appId;
+        }
+
+        if (message.type === 'status' && (message.data?.isReady === true || message.data?.event === 'SDK_READY')) {
+            this.markReady();
+        }
+
+        if (message.type === 'loginResult' && message.data?.isReady !== false && isSuccessResponse(message)) {
+            this.markReady();
+        }
+
+        if (message.type === 'message') {
+            for (const item of message.data?.messages || []) {
+                const text = item?.payload?.text;
+                if (typeof text !== 'string') {
+                    continue;
+                }
+                try {
+                    const content = JSON.parse(text) as YcyIMMessage;
+                    this.events.emit('message', content);
+                } catch {
+                    this.events.emit('message', {
+                        code: 'raw',
+                        payload: item,
+                    });
+                }
+            }
+        }
+
+        if (message.type === 'error') {
+            this.events.emit('error', new Error(message.message || 'WebSocket API Error'));
+        }
+
+        this.resolveWaiter(message.type, message);
+    }
+
+    private markReady(): void {
+        if (this.isReady) return;
+        this.isReady = true;
+        console.log('[YcyIMClient] IM 会话已就绪');
+        this.events.emit('ready');
+    }
+
+    private async sendAndWait(
+        message: ImWsClientMessage,
+        responseType: string,
+        timeout = 15000
+    ): Promise<ImWsServerMessage> {
+        const response = new Promise<ImWsServerMessage>((resolve, reject) => {
+            const timer = setTimeout(() => {
+                this.removeWaiter(responseType, waiter);
+                reject(new Error(`等待 ${responseType} 超时`));
+            }, timeout);
+
+            const waiter = {
+                resolve,
+                reject,
+                timer,
+            };
+
+            const entries = this.waiters.get(responseType) || [];
+            entries.push(waiter);
+            this.waiters.set(responseType, entries);
+        });
+
+        await this.sendRaw(message);
+        return await response;
+    }
+
+    private async sendRaw(message: ImWsClientMessage): Promise<void> {
+        if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+            throw new Error('WebSocket 未连接');
+        }
+
+        await new Promise<void>((resolve, reject) => {
+            this.socket!.send(JSON.stringify(message), (error) => {
+                if (error) {
+                    reject(error);
+                    return;
+                }
+                resolve();
+            });
+        });
+    }
+
+    private resolveWaiter(type: string, message: ImWsServerMessage): void {
+        const entries = this.waiters.get(type);
+        if (!entries?.length) {
+            return;
+        }
+
+        const waiter = entries.shift()!;
+        clearTimeout(waiter.timer);
+        if (!entries.length) {
+            this.waiters.delete(type);
+        }
+        waiter.resolve(message);
+    }
+
+    private removeWaiter(type: string, waiterToRemove: {
+        resolve: (message: ImWsServerMessage) => void;
+        reject: (error: Error) => void;
+        timer: NodeJS.Timeout;
+    }): void {
+        const entries = this.waiters.get(type);
+        if (!entries?.length) {
+            return;
+        }
+
+        const nextEntries = entries.filter((waiter) => waiter !== waiterToRemove);
+        if (nextEntries.length) {
+            this.waiters.set(type, nextEntries);
+            return;
+        }
+
+        this.waiters.delete(type);
     }
 
     public on = this.events.on.bind(this.events);

@@ -5,7 +5,7 @@ import { routeConfig, responses, body } from 'koa-swagger-decorator';
 import { PassThrough } from 'stream';
 
 import { LoLGameManager } from '#app/managers/LoLGameManager.js';
-import { LoLGameEventType } from '#app/shared/types/index.js';
+import { LoLGameEventType, LOL_COMMAND_IDS, type LoLCommandId } from '#app/shared/types/index.js';
 import { LoLGameController } from '../game/LoLGameController.js';
 import { LRUCache } from 'lru-cache';
 import { firstHeader } from '#app/utils/utils.js';
@@ -97,7 +97,7 @@ export class MCPApiController {
         });
 
         // 监听游戏事件
-        const eventTriggeredHandler = (eventType: LoLGameEventType, commandId: number) => {
+        const eventTriggeredHandler = (eventType: LoLGameEventType, commandId: LoLCommandId) => {
             connection.sendEvent('eventTriggered', { eventType, commandId });
         };
         game.on('eventTriggered', eventTriggeredHandler);
@@ -166,7 +166,7 @@ export class MCPApiController {
         tags: ['MCP'],
     })
     @body(z.object({
-        commandId: z.number().min(0).max(6).describe('指令ID (0-6)'),
+        commandId: z.enum(LOL_COMMAND_IDS).describe('英文指令ID'),
     }))
     @responses(z.object({
         status: z.number(),
@@ -175,7 +175,7 @@ export class MCPApiController {
     }))
     public async sendCommand(ctx: RouterContext): Promise<void> {
         const clientId = ctx.params.id;
-        const { commandId } = ctx.request.res as { commandId: number };
+        const { commandId } = ctx.request.body as { commandId: LoLCommandId };
 
         const game = LoLGameManager.instance.getGame(clientId);
         if (!game) {
@@ -263,7 +263,7 @@ export class MCPApiController {
         triggers: z.array(z.object({
             eventType: z.string(),
             enabled: z.boolean(),
-            commandId: z.number(),
+            commandId: z.enum(LOL_COMMAND_IDS),
         })).optional(),
     }))
     public async getEventTriggers(ctx: RouterContext): Promise<void> {
@@ -300,7 +300,7 @@ export class MCPApiController {
         triggers: z.array(z.object({
             eventType: z.nativeEnum(LoLGameEventType),
             enabled: z.boolean(),
-            commandId: z.number().min(0).max(6),
+            commandId: z.enum(LOL_COMMAND_IDS),
         })),
     }))
     @responses(z.object({
@@ -310,7 +310,7 @@ export class MCPApiController {
     }))
     public async updateEventTriggers(ctx: RouterContext): Promise<void> {
         const clientId = ctx.params.id;
-        const { triggers } = ctx.request.res as { triggers: any[] };
+        const { triggers } = ctx.request.body as { triggers: any[] };
 
         const game = LoLGameManager.instance.getGame(clientId);
         if (!game) {

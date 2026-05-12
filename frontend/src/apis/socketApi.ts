@@ -8,8 +8,11 @@ import type {
     WebSocketEventListeners,
 } from "../../../shared/types/index.js";
 import {
+    LOL_COMMAND_IDS,
+    LoLCommandLabels,
     LoLGameEventType,
     LoLEventNames,
+    type LoLCommandId,
     type LoLEventTriggerConfig,
     type LoLPlayerScores,
     type LoLPlayer,
@@ -20,6 +23,7 @@ import {
 
 // Re-export for backward compatibility
 export type {
+    LoLCommandId,
     WebSocketMessage,
     WebSocketServerMessage,
     RemoteNotificationInfo,
@@ -29,7 +33,7 @@ export type {
     LoLLiveGameInfo,
     GameStatus,
 };
-export { LoLGameEventType, LoLEventNames };
+export { LOL_COMMAND_IDS, LoLCommandLabels, LoLGameEventType, LoLEventNames };
 
 // Rename LoLPlayer to LoLPlayerInfo for backward compatibility
 export type LoLPlayerInfo = LoLPlayer;
@@ -205,7 +209,7 @@ export class SocketApi {
     /**
      * 手动发送指令
      */
-    public sendCommand(commandId: number) {
+    public sendCommand(commandId: LoLCommandId) {
         return this.sendRequest({
             action: "sendCommand",
             commandId,
