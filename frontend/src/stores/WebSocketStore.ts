@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { SocketApi } from '../apis/socketApi';
-import type { LoLEventTriggerConfig, LoLGameEventType, GameStatus, LoLLiveGameInfo } from '../../../shared/types/index.js';
+import type { LoLCommandId, LoLEventTriggerConfig, LoLGameEventType, GameStatus, LoLLiveGameInfo } from '../../../shared/types/index.js';
 import { ServerInfoResData, webApi } from '../apis/webApi';
 import { handleApiResponse } from '../utils/response';
 import { useLogStore } from './LogStore';
@@ -8,6 +8,10 @@ import { useLogStore } from './LogStore';
 export interface ClientInfo {
   id: string;
   name: string;
+  uid?: string;
+  token?: string;
+  userId?: string;
+  connectionType?: 'ycyim';
   lastConnectTime: number;
 }
 
@@ -141,7 +145,7 @@ export const useWebSocketStore = defineStore('websocket', {
         this.eventTriggers = config;
       });
 
-      wsClient.on('eventTriggered', (eventType: LoLGameEventType, commandId: number) => {
+      wsClient.on('eventTriggered', (eventType: LoLGameEventType, commandId: LoLCommandId) => {
         logStore.addLog('info', `事件触发: ${eventType} -> 指令 ${commandId}`, 'Event');
       });
 
@@ -215,6 +219,14 @@ export const useWebSocketStore = defineStore('websocket', {
       }
     },
 
+    buildYcyIMClientId(uid: string) {
+      return `ycyim:${uid}`;
+    },
+
+    useClientId(clientId: string) {
+      this.clientId = clientId;
+    },
+
     async bindClient() {
       if (!this.clientId) return;
       if (!wsClient?.isConnected) return;
@@ -256,7 +268,7 @@ export const useWebSocketStore = defineStore('websocket', {
       return res;
     },
 
-    async sendCommand(commandId: number) {
+    async sendCommand(commandId: LoLCommandId) {
       if (!wsClient) throw new Error('WebSocket not initialized');
 
       const res = await wsClient.sendCommand(commandId);
@@ -269,11 +281,38 @@ export const useWebSocketStore = defineStore('websocket', {
     },
 
     // Consolidated from ClientsStore
-    addClient(id: string, name: string) {
-      this.clientList.push({ id, name, lastConnectTime: Date.now() });
+    addClient(id: string, name: string, extras: Partial<Omit<ClientInfo, 'id' | 'name' | 'lastConnectTime'>> = {}) {
+      const existingClient = this.clientList.find(c => c.id === id)
+        || (extras.uid ? this.clientList.find(c => c.uid === extras.uid) : undefined);
+      if (existingClient) {
+        existingClient.id = id;
+        existingClient.name = name;
+        existingClient.uid = extras.uid ?? existingClient.uid;
+        existingClient.token = extras.token ?? existingClient.token;
+        existingClient.userId = extras.userId ?? existingClient.userId;
+        existingClient.connectionType = extras.connectionType ?? existingClient.connectionType ?? 'ycyim';
+        existingClient.lastConnectTime = Date.now();
+        return;
+      }
+
+      this.clientList.push({
+        id,
+        name,
+        uid: extras.uid,
+        token: extras.token,
+        userId: extras.userId,
+        connectionType: extras.connectionType ?? 'ycyim',
+        lastConnectTime: Date.now(),
+      });
     },
     getClientInfo(id: string) {
       return this.clientList.find(c => c.id === id);
+    },
+    getClientInfoByUid(uid: string) {
+      return this.clientList.find(c => c.uid === uid);
+    },
+    getReconnectableClients() {
+      return this.clientList.filter(c => c.uid && c.token);
     },
     updateClientName(id: string, name: string) {
       const client = this.clientList.find(c => c.id === id);
@@ -301,6 +340,6 @@ export const useWebSocketStore = defineStore('websocket', {
 
   persist: {
     key: 'CGH_WebSocket',
-    pick: ['clientList', 'ignoredNotificationIds'],
+    pick: ['clientId', 'clientList', 'ignoredNotificationIds'],
   },
 });

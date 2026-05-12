@@ -12,7 +12,7 @@ const emit = defineEmits<{
 }>();
 
 const sortedClientList = computed(() => {
-  return clientsStore.clientList.sort((a, b) => b.lastConnectTime - a.lastConnectTime);
+  return [...clientsStore.getReconnectableClients()].sort((a, b) => b.lastConnectTime - a.lastConnectTime);
 });
 
 const connectToClient = (clientId: string) => {
@@ -37,6 +37,7 @@ const connectToClient = (clientId: string) => {
                     <div>
                       <span class="font-medium text-surface-500 dark:text-surface-400 text-sm">ID: {{ item.id }}</span>
                       <div class="text-lg font-medium">{{ item.name }}</div>
+                      <div class="text-sm text-surface-500 dark:text-surface-400">UID: {{ item.uid }}</div>
                     </div>
                   </div>
                   <div class="flex flex-col md:items-end gap-8">

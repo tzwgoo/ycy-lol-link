@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { reactive } from 'vue';
 import { webApi } from '../../apis/webApi';
+import { useWebSocketStore } from '../../stores/WebSocketStore';
 
 defineOptions({
   name: 'ConnectToClientDialog',
@@ -11,9 +12,10 @@ const props = defineProps<{
 }>();
 
 const visible = defineModel<boolean>('visible');
+const wsStore = useWebSocketStore();
 
 const emit = defineEmits<{
-  (name: 'ycyimConnected'): void;
+  (name: 'ycyimConnected', payload: { clientId: string; uid: string; token: string }): void;
 }>();
 
 const state = reactive({
@@ -29,7 +31,8 @@ const handleYcyIMConnect = async () => {
     return;
   }
 
-  if (!props.clientId) {
+  const clientId = props.clientId || wsStore.buildYcyIMClientId(state.ycyimUid.trim());
+  if (!clientId) {
     state.ycyimError = '客户端ID未初始化';
     return;
   }
@@ -39,13 +42,17 @@ const handleYcyIMConnect = async () => {
 
   try {
     const res = await webApi.connectViaYcyIM({
-      clientId: props.clientId,
-      uid: state.ycyimUid,
+      clientId,
+      uid: state.ycyimUid.trim(),
       token: state.ycyimToken,
     });
 
     if (res && res.status === 1) {
-      emit('ycyimConnected');
+      emit('ycyimConnected', {
+        clientId,
+        uid: state.ycyimUid.trim(),
+        token: state.ycyimToken,
+      });
       visible.value = false;
     } else {
       state.ycyimError = res?.message || '连接失败';
