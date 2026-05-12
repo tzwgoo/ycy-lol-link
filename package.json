@@ -9,13 +9,15 @@
     "build:frontend": "cd frontend && npm run build && cd ..",
     "build:server": "cd server && npm run build && cd ..",
     "build:server:bundled": "cd server && npm run build:bundled && cd ..",
-    "build:migrate": "shx cp -r frontend/dist/* server/public",
+    "build:clean:public": "shx rm -rf server/public/*",
+    "build:migrate": "npm run build:clean:public && shx cp -r frontend/dist/* server/public",
     "build": "npm run build:frontend && npm run build:server && npm run build:migrate",
+    "build:verify": "node scripts/build-verify.js",
     "build:electron": "npm run build && electron-builder",
     "start": "cd server && node dist/index.js",
     "electron:dev": "node electron-start.js",
-    "electron:pack": "electron-builder --dir",
-    "electron:dist": "electron-builder"
+    "electron:pack": "npm run build && electron-builder --dir",
+    "electron:dist": "npm run build && electron-builder"
   },
   "keywords": [],
   "author": "Tank",
